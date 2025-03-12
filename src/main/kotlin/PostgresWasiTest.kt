@@ -64,10 +64,10 @@ object PostgresWasiTest {
                     "PGDATA" to "/tmp/pglite/base"
                 )
             }
-        }.use(::executeCode)
+        }.use(::bootAndTestPostgres)
     }
 
-    private fun executeCode(embedderHost: EmbedderHost) {
+    private fun bootAndTestPostgres(embedderHost: EmbedderHost) {
 
         // Prepare Source
         val source = Source.newBuilder("wasm", Path.of(POSTGRES_WASI_FILE).toUri().toURL())
@@ -94,24 +94,30 @@ object PostgresWasiTest {
             val pgModule = context.getBindings("wasm").getMember(POSTGRES_MODULE_NAME)
             val pgMemory = pgModule.getMember("memory")
 
+            println("- *** Executing '_start' *** -")
             val pgStartFn = pgModule.getMember("_start")
             val pgStartRes = pgStartFn.execute()
 
+            println("- *** Executing 'pg_initdb' *** -")
             val pg_initdbFn = pgModule.getMember("pg_initdb")
             val initRes = pg_initdbFn.execute()
 
 
+            println("- *** Executing 'use_socketfile' *** -")
             val useSocketFileFn = pgModule.getMember("use_socketfile")
             val useSocketFileRes = useSocketFileFn.execute()
 
             try {
+                println("- *** Executing 'interactive_one' *** -")
                 val pg_interactiveFn = pgModule.getMember("interactive_one")
                 writeStringToMemory(pgMemory, "SELECT now();", 0)
                 val pg_interactiveRes = pg_interactiveFn.execute()
                 val res = readStringFromMemory(pgMemory, 0, pgMemory.bufferSize.toInt())
-                println(res)
+                println("- Function returned: $pg_interactiveRes")
+                println("- Memory contains: $res")
             }
             catch (e: Exception) {
+                println("Exception from 'interactive_one': $e")
                 throw e
             }
             return
