@@ -15,6 +15,9 @@ repositories {
 }
 
 dependencies {
+    implementation("at.released.weh:bindings-chicory-wasip1:0.4")
+    implementation("com.dylibso.chicory:runtime:1.1.1")
+
     implementation("at.released.weh:bindings-graalvm241-wasip1:0.3")
     implementation("at.released.weh:bindings-graalvm241-emscripten:0.3")
     implementation("org.graalvm.polyglot:polyglot:${graalvmVersion}")

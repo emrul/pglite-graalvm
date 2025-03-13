@@ -60,7 +60,7 @@ object PostgresWasiTest {
                     "ENVIRONMENT" to "wasi-embed",
                     "REPL" to "Y",
                     "PGUSER" to "postgres",
-                    "PGDATABASE" to "postgres",
+                    "PGDATABASE" to "template1",
                     "PGDATA" to "/tmp/pglite/base"
                 )
             }
