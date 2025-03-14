@@ -102,26 +102,38 @@ object PostgresWasiChicoryTest {
         //val useSocketFileFn = pgModule.export("use_socketfile").apply()
 
         try {
+
+
+
+            println("- *** Executing 'use_wire' *** -")
+            pgModule.export("use_wire").apply(1)
+
             println("- *** Writing query to memory *** -")
             val query = "SELECT now();"
-            val bytesWritten = writeQueryToMemory(query, pgModule)
-
+            //val bytesWritten = writeQueryToMemory(query, pgModule)
+            val queryBytes = PostgresWireProtocol.createQueryMessage(query)
+            pgModule.memory().write(1, queryBytes)
+            //val querySize = writeQueryToMemory(query, pgModule)
             println("- *** Executing 'interactive_write' *** -")
-            val interactive_writeRes = pgModule.export("interactive_write").apply(bytesWritten)
-            println("- Function returned: $interactive_writeRes")
+            val interactive_writeRes = pgModule.export("interactive_write").apply(queryBytes.size.toLong())
+
+
 
 
             println("- *** Executing 'interactive_one' *** -")
-            var interactive_oneRes = pgModule.export("interactive_one").apply()
+            pgModule.export("interactive_one").apply()
 
             println("- *** Executing 'interactive_read' *** -")
             var interactive_readRes = pgModule.export("interactive_read").apply()
             while (interactive_readRes[0] == 0L) {
+                readResultFromMemory(pgModule)
                 interactive_readRes = pgModule.export("interactive_read").apply()
                 Thread.sleep(500)
             }
+            val res = pgModule.memory().readBytes(0, interactive_readRes[0].toInt())
 
-            println("- Function returned: $interactive_readRes")
+            println("- Function returned: ${String(res)}")
+
         }
         catch (e: Exception) {
             println("Exception from 'interactive_one': $e")
@@ -129,11 +141,16 @@ object PostgresWasiChicoryTest {
         }
     }
 
+    fun readResultFromMemory(module: Instance) {
+        //val res = module.memory().readBytes(0)
+        //println(res)
+        return
+    }
     fun writeQueryToMemory(query: String, module: Instance) : Long {
         //val alloc = module.export("alloc")
         val numBytes = query.toByteArray().size.toLong()+1
         //val ptr = alloc.apply(numBytes)[0].toInt()
-        module.memory().writeCString(0, query)
+        module.memory().writeCString(1, query)
         return numBytes
     }
 
