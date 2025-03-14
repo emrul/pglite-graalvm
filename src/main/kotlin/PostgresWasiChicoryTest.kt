@@ -1,13 +1,11 @@
 
 import at.released.weh.bindings.chicory.wasip1.ChicoryWasiPreview1Builder
 import at.released.weh.host.EmbedderHost
-import com.dylibso.chicory.runtime.ExportFunction
 import com.dylibso.chicory.runtime.HostFunction
 import com.dylibso.chicory.runtime.ImportValues
 import com.dylibso.chicory.runtime.Instance
 import com.dylibso.chicory.wasm.Parser
 import com.dylibso.chicory.wasm.WasmModule
-import jdk.internal.joptsimple.internal.Messages.message
 import java.nio.file.Path
 import java.security.SecureRandom
 import kotlin.io.path.createDirectories
@@ -100,29 +98,52 @@ object PostgresWasiChicoryTest {
         println("- *** Executing 'pg_initdb' *** -")
         pgModule.export("pg_initdb").apply()
 
-        println("- *** Executing 'use_socketfile' *** -")
-        val useSocketFileFn = pgModule.export("use_socketfile").apply()
+        //println("- *** Executing 'use_socketfile' *** -")
+        //val useSocketFileFn = pgModule.export("use_socketfile").apply()
 
         try {
-            println("- *** Executing 'interactive_one' *** -")
+            println("- *** Writing query to memory *** -")
             val query = "SELECT now();"
-            val len = query.toByteArray().size;
-            val alloc = pgModule.export("alloc")
-            val dealloc = pgModule.export("dealloc")
-            val pg_interactiveFn = pgModule.export("interactive_one")
+            val bytesWritten = writeQueryToMemory(query, pgModule)
 
-            // We can now write the message to the module's memory:
-            val memory = pgModule.memory();
-            memory.writeString(alloc.apply(len).get(0).toInt(), query)
+            println("- *** Executing 'interactive_write' *** -")
+            val interactive_writeRes = pgModule.export("interactive_write").apply(bytesWritten)
+            println("- Function returned: $interactive_writeRes")
 
-            val pg_interactiveRes = pg_interactiveFn.apply()
-            val res = readStringFromMemory(pgMemory, 0, pgMemory.bufferSize.toInt())
-            println("- Function returned: $pg_interactiveRes")
-            println("- Memory contains: $res")
+
+            println("- *** Executing 'interactive_one' *** -")
+            var interactive_oneRes = pgModule.export("interactive_one").apply()
+
+            println("- *** Executing 'interactive_read' *** -")
+            var interactive_readRes = pgModule.export("interactive_read").apply()
+            while (interactive_readRes[0] == 0L) {
+                interactive_readRes = pgModule.export("interactive_read").apply()
+                Thread.sleep(500)
+            }
+
+            println("- Function returned: $interactive_readRes")
         }
         catch (e: Exception) {
             println("Exception from 'interactive_one': $e")
             throw e
+        }
+    }
+
+    fun writeQueryToMemory(query: String, module: Instance) : Long {
+        //val alloc = module.export("alloc")
+        val numBytes = query.toByteArray().size.toLong()+1
+        //val ptr = alloc.apply(numBytes)[0].toInt()
+        module.memory().writeCString(0, query)
+        return numBytes
+    }
+
+    fun stringToNullTerminatedBytes(input: String): ByteArray {
+        // Get the UTF-8 bytes of the input string
+        val stringBytes = input.toByteArray(Charsets.UTF_8)
+
+        // Create the result array directly with the correct size
+        return ByteArray(stringBytes.size + 1) { i ->
+            if (i < stringBytes.size) stringBytes[i] else 0
         }
     }
 
