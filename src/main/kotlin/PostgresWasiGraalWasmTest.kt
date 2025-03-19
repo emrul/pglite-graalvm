@@ -95,19 +95,27 @@ object PostgresWasiTest {
             val pgMemory = pgModule.getMember("memory")
 
             println("- *** Executing '_start' *** -")
-            val pgStartFn = pgModule.getMember("_start")
-            val pgStartRes = pgStartFn.execute()
+            pgModule.getMember("_start").execute()
 
             println("- *** Executing 'pg_initdb' *** -")
-            val pg_initdbFn = pgModule.getMember("pg_initdb")
-            val initRes = pg_initdbFn.execute()
+            pgModule.getMember("pg_initdb").execute()
 
-
-            println("- *** Executing 'use_socketfile' *** -")
-            val useSocketFileFn = pgModule.getMember("use_socketfile")
-            val useSocketFileRes = useSocketFileFn.execute()
+            //println("- *** Executing 'use_socketfile' *** -")
+            //val useSocketFileFn = pgModule.getMember("use_socketfile")
+            //val useSocketFileRes = useSocketFileFn.execute()
 
             try {
+
+                println("- *** Executing 'use_wire' *** -")
+                pgModule.getMember("use_wire").execute(1)
+
+
+                println("- *** Writing query to memory *** -")
+                val query = "SELECT now();"
+                //val bytesWritten = writeQueryToMemory(query, pgModule)
+                val queryBytes = PostgresWireProtocol.createQueryMessage(query)
+
+
                 println("- *** Executing 'interactive_one' *** -")
                 val pg_interactiveFn = pgModule.getMember("interactive_one")
                 writeStringToMemory(pgMemory, "SELECT now();", 0)
